@@ -1,5 +1,6 @@
 + script that just sends a prompt to llm and receives a response
 + persistent conversation
 + log history
-- file editing
++ file editing
+- use mcp?
 - chat history managed with git
