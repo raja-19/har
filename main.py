@@ -1,6 +1,5 @@
 import http.client
 import json
-# import urllib.parse
 import os
 
 api_key = os.environ["GEMINI_API_KEY"]

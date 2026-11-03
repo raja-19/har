@@ -2,3 +2,4 @@
 + persistent conversation
 + log history
 - file editing
+- chat history managed with git
