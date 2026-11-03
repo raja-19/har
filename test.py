@@ -18,19 +18,30 @@ params = {
 
 while True:
   inp = input()
+
+  with open("hist.json", "r") as file:
+    hist = json.load(file)
+
   if inp == "quit":
     break
 
-  params["input"].append({"type": "user_input", "content": [{"type": "text", "text": inp}]})
-  print(params)
+  hist.append({"type": "user_input", "content": [{"type": "text", "text": inp}]})
+  params["input"] = hist
+
   conn.request("POST", "/v1beta/interactions", json.dumps(params), headers)
 
   resp = conn.getresponse()
   if resp.status == 200:
     data = json.loads(resp.read())
-    content = data["steps"][1]["content"][0]
-    params["input"].append(content)
-    out = content["text"]
+
+    content = data["steps"][1]["content"]
+
+    hist.append({"type": "model_output", "content": content})
+
+    with open("hist.json", "w") as file:
+      json.dump(hist, file)
+
+    out = content[0]["text"]
     print(out)
 
 conn.close()
