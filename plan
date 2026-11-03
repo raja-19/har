@@ -1,2 +1,3 @@
 - script that just sends a prompt to llm and receives a response
-
+- persistent conversation
+- file editing
