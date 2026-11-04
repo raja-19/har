@@ -1,6 +1,7 @@
 import http.client
 import json
 import os
+import subprocess
 
 api_key = os.environ["GEMINI_API_KEY"]
 host = "generativelanguage.googleapis.com"
@@ -14,19 +15,21 @@ params = {
   "input": []
 }
 
+
 with open("input.json", "r") as file:
   req = json.load(file)
 
-with open("hist.json", "r") as file:
+with open("hist/hist.json", "r") as file:
   hist = json.load(file)
 
 if "file" in req:
   path = req["file"]["path"]
   with open(path, "r") as file:
-    content = file.read()
-  req["file"]["content"] = content
+    req["file"]["content"] = file.read()
 
-params["input"] = json.dumps(req)
+hist.append({"type": "user_input", "content": [{"type": "text", "text": json.dumps(req)}]})
+
+params["input"] = hist
 
 conn.request("POST", "/v1beta/interactions", json.dumps(params), headers)
 
@@ -36,11 +39,17 @@ if resp.status == 200:
   data = json.loads(resp.read())
   res = json.loads(data["steps"][1]["content"][0]["text"])
 
-  hist.append({"type": "user_input", "content": [{"type": "text", "text": json.dumps(req)}]})
-  hist.append({"type": "model_output", "content": json.dumps(res)})
+  hist.append({"type": "model_output", "content": [{"type": "text", "text": json.dumps(res)}]})
 
-  with open("hist.json", "w") as file:
+  with open("hist/hist.json", "w") as file:
     json.dump(hist, file)
+
+  cwd = os.getcwd()
+  print(cwd)
+  os.chdir(f"{cwd}/hist")
+  subprocess.run(["git", "add", "hist.json"])
+  subprocess.run(["git", "commit", "-m", f"{req["text"]}"])
+  os.chdir(cwd)
 
   print(res)
   if "file" in res:

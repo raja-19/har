@@ -2,5 +2,5 @@
 + persistent conversation
 + log history
 + file editing
-- use mcp?
-- chat history managed with git
+= mpc not needed (har is meant to be a complete, tightly-coupled, and non-extensible)
++ chat history managed with git
