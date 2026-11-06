@@ -1,11 +1,14 @@
 import http.client
 import json
 import os
+import re
 import subprocess
 
 api_key = os.environ["GEMINI_API_KEY"]
 host = "generativelanguage.googleapis.com"
-system = "The response format (no codeblock or extra characters): {\"text\": \"<text output>\"} or {\"text\": \"<text output>\", \"file\": {\"path\": \"<path>\", \"content\": \"<content>\"}, if the response suggests a file modification (in such a case, the response should contain the full updated contents of the modified file). The path must match a path from one of the requests (they follow the same format)."
+
+with open("system.md", "r") as file:
+  system = file.read()
 
 conn = http.client.HTTPSConnection(host)
 headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
@@ -15,49 +18,79 @@ params = {
   "input": []
 }
 
+cwd = os.getcwd()
+proj_dir = f"{cwd}/.."
 
-with open("input.json", "r") as file:
-  req = json.load(file)
+while True:
+  print("You:")
+  inp = input()
+  print("------------------------------------------")
 
-with open("hist/hist.json", "r") as file:
-  hist = json.load(file)
+  if inp == "quit":
+    print("Har:\nQuitting...")
+    break
 
-if "file" in req:
-  path = req["file"]["path"]
-  with open(path, "r") as file:
-    req["file"]["content"] = file.read()
+  matches = re.findall(r"`@([^\s]+)`", inp)
 
-hist.append({"type": "user_input", "content": [{"type": "text", "text": json.dumps(req)}]})
+  ok = True
 
-params["input"] = hist
+  for path in matches:
+    full_path = f"{proj_dir}/{path}"
+    if not os.path.isfile(full_path):
+      print(f"Har:\nFile {full_path} does not exist.\nTry again.")
+      ok = False
+      break
 
-conn.request("POST", "/v1beta/interactions", json.dumps(params), headers)
+    with open(full_path, "r") as file:
+      content = file.read()
 
-resp = conn.getresponse()
+    ext = os.path.splitext(path)[1].lstrip(".")
+    inp += (f"\n\n###{path}\n```{ext}\n{content}```")
 
-if resp.status == 200:
-  data = json.loads(resp.read())
-  res = json.loads(data["steps"][1]["content"][0]["text"])
+  if not ok:
+    continue
 
-  hist.append({"type": "model_output", "content": [{"type": "text", "text": json.dumps(res)}]})
+  with open("hist/hist.json", "r") as file:
+    hist = json.load(file)
 
-  with open("hist/hist.json", "w") as file:
-    json.dump(hist, file)
+  hist.append({"type": "user_input", "content": [{"type": "text", "text": inp}]})
 
-  cwd = os.getcwd()
-  print(cwd)
-  os.chdir(f"{cwd}/hist")
-  subprocess.run(["git", "add", "hist.json"])
-  subprocess.run(["git", "commit", "-m", f"{req["text"]}"])
-  os.chdir(cwd)
+  params["input"] = hist
 
-  print(res)
-  if "file" in res:
-    path = res["file"]["path"]
-    content = res["file"]["content"]
-    with open(path, "w") as file:
-      file.write(content)
-else:
-  print(resp.status, resp.reason)
+  conn.request("POST", "/v1beta/interactions", json.dumps(params), headers)
+
+  resp = conn.getresponse()
+
+  if resp.status == 200:
+    data = json.loads(resp.read())
+    outp = data["steps"][1]["content"][0]["text"]
+
+    pattern = r"```diff(.*?)```"
+    match = re.search(pattern, outp, re.DOTALL)
+    if match:
+      print("MATCH")
+      text = re.sub(pattern, r"", outp, flags=re.DOTALL).strip()
+      diff = match.group(1)
+      with open("tmp.patch", "w") as file:
+        file.write(diff)
+      os.chdir(proj_dir)
+      subprocess.run(["git", "apply", "har/tmp.patch"])
+      os.chdir(cwd)
+      print(f"Model:\n{text}\n------------------------------------------")
+    else:
+      print("NO MATCH")
+      print(f"Model:\n{outp}\n------------------------------------------")
+
+    hist.append({"type": "model_output", "content": [{"type": "text", "text": json.dumps(outp)}]})
+    with open("hist/hist.json", "w") as file:
+      json.dump(hist, file)
+    os.chdir(f"{cwd}/hist")
+    with open("log", "w") as log:
+      subprocess.run(["git", "add", "hist.json"])
+      subprocess.run(["git", "commit", "-m", inp[:20]])
+    os.chdir(cwd)
+  else:
+    print(f"Har:\n{resp.status} {resp.reason}.")
+    break
 
 conn.close()

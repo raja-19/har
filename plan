@@ -1,6 +1,9 @@
 + script that just sends a prompt to llm and receives a response
 + persistent conversation
 + log history
-+ file editing
-= mpc not needed (har is meant to be a complete, tightly-coupled, and non-extensible)
++ file editing (whole file)
+x mpc not needed (har is meant to be monolithic and is not meant to be extensible)
 + chat history managed with git
+- design (high- and low-level)
++ file editing with git diff patches
+? c++
