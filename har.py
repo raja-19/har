@@ -68,7 +68,6 @@ while True:
     pattern = r"```diff(.*?)```"
     match = re.search(pattern, outp, re.DOTALL)
     if match:
-      print("MATCH")
       text = re.sub(pattern, r"", outp, flags=re.DOTALL).strip()
       diff = match.group(1)
       with open("tmp.patch", "w") as file:
@@ -78,7 +77,6 @@ while True:
       os.chdir(cwd)
       print(f"Model:\n{text}\n------------------------------------------")
     else:
-      print("NO MATCH")
       print(f"Model:\n{outp}\n------------------------------------------")
 
     hist.append({"type": "model_output", "content": [{"type": "text", "text": json.dumps(outp)}]})
